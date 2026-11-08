@@ -68,14 +68,16 @@
             
             <div class="flex flex-col">
                 <label for="height-slider" class="font-bold text-sm text-slate-700 mb-1">Flughöhe (m)</label>
-                <input type="range" id="height-slider" min="100" max="3000" step="100" value="2000" class="w-32 md:w-40 accent-blue-600 h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer">
-                <div class="text-xs text-slate-600 mt-2 font-mono bg-white px-2 py-1 rounded text-center border border-slate-200 shadow-sm"><span id="height-val" class="font-bold text-slate-800">2000</span> m</div>
+                <!-- FIX: Startwert auf 500 gesetzt -->
+                <input type="range" id="height-slider" min="100" max="3000" step="100" value="500" class="w-32 md:w-40 accent-blue-600 h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+                <div class="text-xs text-slate-600 mt-2 font-mono bg-white px-2 py-1 rounded text-center border border-slate-200 shadow-sm"><span id="height-val" class="font-bold text-slate-800">500</span> m</div>
             </div>
             
             <div class="flex flex-col">
                 <label for="speed-slider" class="font-bold text-sm text-slate-700 mb-1">Geschwindigkeit (km/h)</label>
-                <input type="range" id="speed-slider" min="50" max="500" step="10" value="360" class="w-32 md:w-40 accent-blue-600 h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer">
-                <div class="text-xs text-slate-600 mt-2 font-mono bg-white px-2 py-1 rounded text-center border border-slate-200 shadow-sm"><span id="speed-val" class="font-bold text-slate-800">360</span> km/h</div>
+                <!-- Startwert auf 252 gesetzt, step auf 1 -->
+                <input type="range" id="speed-slider" min="50" max="500" step="1" value="252" class="w-32 md:w-40 accent-blue-600 h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+                <div class="text-xs text-slate-600 mt-2 font-mono bg-white px-2 py-1 rounded text-center border border-slate-200 shadow-sm"><span id="speed-val" class="font-bold text-slate-800">252</span> km/h</div>
             </div>
 
             <div class="flex flex-col">
@@ -99,9 +101,8 @@
                 <button id="btn-part2" class="btn-didactic border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
                     Teil 2
                 </button>
-                <!-- FIX: Dieser Button ist jetzt immer im Layout, aber anfangs ausgegraut -->
                 <button id="btn-vector-values" class="btn-didactic opacity-50 cursor-not-allowed border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
-                    Geschw.
+                    Werte an Vektoren
                 </button>
             </div>
         </div>
@@ -179,244 +180,4 @@
 
     btnResults.addEventListener('click', () => {
         showResults = !showResults;
-        btnResults.classList.toggle('active', showResults);
-        updateResultsBox();
-    });
-
-    btnPart2.addEventListener('click', () => {
-        showVectors = !showVectors;
-        btnPart2.classList.toggle('active', showVectors);
-        
-        if (showVectors) {
-            // Button aktivieren (Grauschleier entfernen)
-            btnVectorValues.classList.remove('opacity-50', 'cursor-not-allowed');
-        } else {
-            // Button wieder ausgrauen und Werte verstecken
-            btnVectorValues.classList.add('opacity-50', 'cursor-not-allowed');
-            showVectorValues = false;
-            btnVectorValues.classList.remove('active');
-        }
-        draw();
-    });
-
-    btnVectorValues.addEventListener('click', () => {
-        // Ignoriert Klicks, solange Teil 2 nicht an ist
-        if (!showVectors) return; 
-        
-        showVectorValues = !showVectorValues;
-        btnVectorValues.classList.toggle('active', showVectorValues);
-        draw();
-    });
-
-    function updateResultsBox() {
-        if (showResults) {
-            const v0_ms = v0_kmh / 3.6;
-            const t_fall = Math.sqrt((2 * h0) / g);
-            const s_x = v0_ms * t_fall;
-            
-            resTime.innerText = t_fall.toFixed(2) + " s";
-            resDist.innerText = s_x.toFixed(2) + " m";
-        } else {
-            resTime.innerText = "?";
-            resDist.innerText = "?";
-        }
-    }
-
-    function drawArrow(fromX, fromY, toX, toY, color, labelText) {
-        const headlen = 14; 
-        const dx = toX - fromX;
-        const dy = toY - fromY;
-        const angle = Math.atan2(dy, dx);
-        
-        ctx.strokeStyle = color;
-        ctx.fillStyle = color;
-        ctx.lineWidth = 4;
-        
-        ctx.beginPath();
-        ctx.moveTo(fromX, fromY);
-        ctx.lineTo(toX, toY);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(toX, toY);
-        ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 7), toY - headlen * Math.sin(angle - Math.PI / 7));
-        ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 7), toY - headlen * Math.sin(angle + Math.PI / 7));
-        ctx.fill();
-
-        if (showVectorValues && labelText) {
-            ctx.font = "bold 16px monospace";
-            ctx.fillStyle = "#0f172a"; 
-            ctx.shadowColor = "rgba(255, 255, 255, 0.9)";
-            ctx.shadowBlur = 5;
-            ctx.fillText(labelText, toX + 8, toY + 18);
-            ctx.shadowBlur = 0; 
-        }
-    }
-
-    function drawVillage(x, y) {
-        ctx.fillStyle = "#ef4444"; 
-        ctx.fillRect(x - 30, y, 60, 5);
-        ctx.fillStyle = "#ffffff"; 
-        ctx.fillRect(x - 10, y, 20, 5);
-
-        ctx.fillStyle = "#cbd5e1"; 
-        ctx.fillRect(x - 25, y - 15, 20, 15);
-        ctx.fillStyle = "#64748b"; 
-        ctx.beginPath();
-        ctx.moveTo(x - 30, y - 15); ctx.lineTo(x - 15, y - 25); ctx.lineTo(x - 5, y - 15);
-        ctx.fill();
-
-        ctx.fillStyle = "#e2e8f0"; 
-        ctx.fillRect(x + 5, y - 20, 25, 20);
-        ctx.fillStyle = "#475569"; 
-        ctx.beginPath();
-        ctx.moveTo(x, y - 20); ctx.lineTo(x + 17, y - 35); ctx.lineTo(x + 35, y - 20);
-        ctx.fill();
-    }
-
-    function drawPlane(x, y) {
-        ctx.fillStyle = "#475569"; 
-        ctx.beginPath();
-        ctx.ellipse(x, y, 30, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.moveTo(x - 20, y);
-        ctx.lineTo(x - 30, y - 18);
-        ctx.lineTo(x - 35, y - 18);
-        ctx.lineTo(x - 28, y);
-        ctx.fill();
-        
-        ctx.fillStyle = "#334155";
-        ctx.beginPath();
-        ctx.moveTo(x - 10, y + 2);
-        ctx.lineTo(x - 18, y + 16);
-        ctx.lineTo(x - 5, y + 16);
-        ctx.lineTo(x + 10, y + 2);
-        ctx.fill();
-    }
-
-    function drawPackage(x, y) {
-        ctx.fillStyle = "#b45309"; 
-        ctx.fillRect(x - 8, y - 8, 16, 16);
-        
-        ctx.strokeStyle = "#fcd34d"; 
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(x - 8, y); ctx.lineTo(x + 8, y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x, y - 8); ctx.lineTo(x, y + 8);
-        ctx.stroke();
-    }
-
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const groundY = toPixY(0);
-        
-        ctx.fillStyle = "#4ade80"; 
-        ctx.fillRect(0, groundY, canvas.width, 15);
-        ctx.fillStyle = "#78350f"; 
-        ctx.fillRect(0, groundY + 15, canvas.width, canvas.height - groundY - 15);
-        
-        const dorfPx = toPixX(targetX);
-        drawVillage(dorfPx, groundY);
-
-        const v0_ms = v0_kmh / 3.6;
-        const currentX = v0_ms * t;
-        let currentY = h0 - 0.5 * g * t * t;
-        
-        if (currentY < 0) currentY = 0; 
-        
-        const pxX = toPixX(currentX);
-        const pxY = toPixY(currentY);
-
-        if (t > 0) {
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
-            ctx.lineWidth = 3;
-            ctx.setLineDash([6, 6]);
-            ctx.beginPath();
-            for (let step = 0; step <= t; step += 0.2) {
-                let sx = v0_ms * step;
-                let sy = h0 - 0.5 * g * step * step;
-                if (sy < 0) sy = 0;
-                if (step === 0) ctx.moveTo(toPixX(sx), toPixY(sy));
-                else ctx.lineTo(toPixX(sx), toPixY(sy));
-            }
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
-
-        drawPackage(pxX, pxY);
-        const planeY = toPixY(h0);
-        drawPlane(pxX, planeY);
-
-        if (showVectors && (isFlying || isLanded) && t > 0) {
-            const vx = v0_ms;
-            const vy = g * t;
-            
-            const vecScale = 0.9; 
-            
-            const vxEnd = pxX + (vx * vecScale);
-            const vyEnd = pxY + (vy * vecScale);
-
-            ctx.strokeStyle = "rgba(15, 23, 42, 0.3)";
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(vxEnd, pxY);
-            ctx.lineTo(vxEnd, vyEnd);
-            ctx.moveTo(pxX, vyEnd);
-            ctx.lineTo(vxEnd, vyEnd);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            
-            drawArrow(pxX, pxY, vxEnd, pxY, "#ef4444", `${vx.toFixed(1)} m/s`);
-            drawArrow(pxX, pxY, pxX, vyEnd, "#3b82f6", `${vy.toFixed(1)} m/s`);
-        }
-    }
-
-    function animate() {
-        if (!isFlying) return;
-        
-        t += 0.04; 
-        let currentY = h0 - 0.5 * g * t * t;
-        
-        if (currentY <= 0) {
-            t = Math.sqrt((2 * h0) / g);
-            isFlying = false;
-            isLanded = true; 
-        }
-        
-        draw();
-
-        if (isFlying) {
-            animFrame = requestAnimationFrame(animate);
-        }
-    }
-
-    btnStart.addEventListener('click', () => {
-        if (isFlying || isLanded) {
-            t = 0;
-            isLanded = false;
-        }
-        isFlying = true;
-        animate();
-    });
-
-    btnReset.addEventListener('click', () => {
-        cancelAnimationFrame(animFrame);
-        isFlying = false;
-        isLanded = false;
-        t = 0;
-        updateInputs(); 
-    });
-
-    setTimeout(() => {
-        resize();
-        updateInputs();
-    }, 100);
-</script>
-</body>
-</html>
+        btnResults.classList.toggle('
