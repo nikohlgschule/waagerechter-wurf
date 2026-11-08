@@ -2,15 +2,22 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Waagerechter Wurf - Simulation (EF)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Verhindert Pull-to-Refresh auf dem iPad */
+        /* iPad Safari Fix: Pinnt das Layout hart an die echten Bildschirmkanten */
+        html, body {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+        }
         body {
             overscroll-behavior-y: none;
             touch-action: none;
         }
+        
         /* Moderner, softer "Milchglas"-Effekt für die UI */
         .glass-panel {
             background: rgba(255, 255, 255, 0.9);
@@ -18,9 +25,24 @@
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.7);
         }
+
+        /* Umgeht den Tailwind-JIT-Bug: Feste CSS-Klasse für die grünen aktiven Buttons */
+        .btn-didactic {
+            background-color: #ffffff;
+            color: #334155;
+            border-color: #cbd5e1;
+        }
+        .btn-didactic:hover {
+            background-color: #f1f5f9;
+        }
+        .btn-didactic.active {
+            background-color: #10b981 !important; /* Emerald 500 */
+            color: #ffffff !important;
+            border-color: #059669 !important;
+        }
     </style>
 </head>
-<body class="bg-gradient-to-b from-sky-400 to-sky-100 h-screen w-screen overflow-hidden flex flex-col font-sans text-slate-800">
+<body class="bg-gradient-to-b from-sky-400 to-sky-100 flex flex-col font-sans text-slate-800">
 
     <!-- Simulationsbereich (Canvas) -->
     <div class="flex-grow relative w-full">
@@ -75,13 +97,13 @@
             
             <!-- Didaktik-Buttons (Toggles) -->
             <div class="flex flex-wrap gap-2 border-l-2 border-slate-300 pl-6 ml-2">
-                <button id="btn-results" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
+                <button id="btn-results" class="btn-didactic border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
                     Ergebnisse
                 </button>
-                <button id="btn-part2" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
+                <button id="btn-part2" class="btn-didactic border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
                     Teil 2
                 </button>
-                <button id="btn-vector-values" class="hidden bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
+                <button id="btn-vector-values" class="hidden btn-didactic border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
                     Werte an Vektoren
                 </button>
             </div>
@@ -162,39 +184,31 @@
     speedSlider.addEventListener('input', updateInputs);
     targetInput.addEventListener('input', updateInputs);
 
-    function toggleButton(btn, isActive) {
-        if (isActive) {
-            btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
-            btn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-600', 'shadow-md');
-        } else {
-            btn.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
-            btn.classList.remove('bg-emerald-500', 'text-white', 'border-emerald-600', 'shadow-md');
-        }
-    }
-
     btnResults.addEventListener('click', () => {
         showResults = !showResults;
-        toggleButton(btnResults, showResults);
+        btnResults.classList.toggle('active', showResults);
         updateResultsBox();
     });
 
     btnPart2.addEventListener('click', () => {
         showVectors = !showVectors;
-        toggleButton(btnPart2, showVectors);
+        btnPart2.classList.toggle('active', showVectors);
         
         if (showVectors) {
             btnVectorValues.classList.remove('hidden');
         } else {
             btnVectorValues.classList.add('hidden');
             showVectorValues = false;
-            toggleButton(btnVectorValues, false);
+            btnVectorValues.classList.remove('active');
         }
         draw();
+        // Zwingt das Canvas zur Größenanpassung, falls das Menü durch den neuen Button umbricht
+        setTimeout(resize, 50);
     });
 
     btnVectorValues.addEventListener('click', () => {
         showVectorValues = !showVectorValues;
-        toggleButton(btnVectorValues, showVectorValues);
+        btnVectorValues.classList.toggle('active', showVectorValues);
         draw();
     });
 
@@ -245,37 +259,36 @@
 
     // Zeichnet das Dorf (saubere Vektorgrafik)
     function drawVillage(x, y) {
-        // Abwurfzone (Markierung auf dem Boden)
-        ctx.fillStyle = "#ef4444"; // rot
+        // Abwurfzone
+        ctx.fillStyle = "#ef4444"; 
         ctx.fillRect(x - 30, y, 60, 5);
-        ctx.fillStyle = "#ffffff"; // weiß
+        ctx.fillStyle = "#ffffff"; 
         ctx.fillRect(x - 10, y, 20, 5);
 
-        // Haus 1 (links)
+        // Haus 1
         ctx.fillStyle = "#cbd5e1"; 
         ctx.fillRect(x - 25, y - 15, 20, 15);
-        ctx.fillStyle = "#64748b"; // Dach
+        ctx.fillStyle = "#64748b"; 
         ctx.beginPath();
         ctx.moveTo(x - 30, y - 15); ctx.lineTo(x - 15, y - 25); ctx.lineTo(x - 5, y - 15);
         ctx.fill();
 
-        // Haus 2 (rechts)
+        // Haus 2
         ctx.fillStyle = "#e2e8f0"; 
         ctx.fillRect(x + 5, y - 20, 25, 20);
-        ctx.fillStyle = "#475569"; // Dach
+        ctx.fillStyle = "#475569"; 
         ctx.beginPath();
         ctx.moveTo(x, y - 20); ctx.lineTo(x + 17, y - 35); ctx.lineTo(x + 35, y - 20);
         ctx.fill();
     }
 
-    // Zeichnet das Flugzeug (Transportmaschine)
+    // Zeichnet das Flugzeug
     function drawPlane(x, y) {
-        ctx.fillStyle = "#475569"; // Rumpf
+        ctx.fillStyle = "#475569"; 
         ctx.beginPath();
         ctx.ellipse(x, y, 30, 8, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Leitwerk
         ctx.beginPath();
         ctx.moveTo(x - 20, y);
         ctx.lineTo(x - 30, y - 18);
@@ -283,7 +296,6 @@
         ctx.lineTo(x - 28, y);
         ctx.fill();
         
-        // Tragfläche
         ctx.fillStyle = "#334155";
         ctx.beginPath();
         ctx.moveTo(x - 10, y + 2);
@@ -293,13 +305,12 @@
         ctx.fill();
     }
 
-    // Zeichnet das Paket (Kiste)
+    // Zeichnet das Paket
     function drawPackage(x, y) {
-        ctx.fillStyle = "#b45309"; // Amber/Braun
+        ctx.fillStyle = "#b45309"; 
         ctx.fillRect(x - 8, y - 8, 16, 16);
         
-        // Paketband
-        ctx.strokeStyle = "#fcd34d"; // Helles Gelb
+        ctx.strokeStyle = "#fcd34d"; 
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(x - 8, y); ctx.lineTo(x + 8, y);
@@ -320,7 +331,6 @@
         ctx.fillStyle = "#78350f"; 
         ctx.fillRect(0, groundY + 15, canvas.width, canvas.height - groundY - 15);
         
-        // Dorf zeichnen
         const dorfPx = toPixX(targetX);
         drawVillage(dorfPx, groundY);
 
@@ -350,10 +360,7 @@
             ctx.setLineDash([]);
         }
 
-        // Paket
         drawPackage(pxX, pxY);
-
-        // Flugzeug
         const planeY = toPixY(h0);
         drawPlane(pxX, planeY);
 
@@ -379,10 +386,7 @@
             ctx.stroke();
             ctx.setLineDash([]);
             
-            // vx (Rot)
             drawArrow(pxX, pxY, vxEnd, pxY, "#ef4444", `${vx.toFixed(1)} m/s`);
-            
-            // vy (Blau)
             drawArrow(pxX, pxY, pxX, vyEnd, "#3b82f6", `${vy.toFixed(1)} m/s`);
         }
     }
