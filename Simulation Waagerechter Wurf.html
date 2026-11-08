@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Waagerechter Wurf - Simulation (EF)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Verhindert Pull-to-Refresh auf dem iPad */
+        body {
+            overscroll-behavior-y: none;
+            touch-action: none;
+        }
+        /* Moderner, softer "Milchglas"-Effekt für die UI */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-sky-400 to-sky-100 h-screen w-screen overflow-hidden flex flex-col font-sans text-slate-800">
+
+    <!-- Simulationsbereich (Canvas) -->
+    <div class="flex-grow relative w-full">
+        <canvas id="simCanvas" class="w-full h-full block"></canvas>
+
+        <!-- Ergebnisse Box -->
+        <div id="results-box" class="absolute top-6 right-6 glass-panel shadow-lg rounded-xl p-5 text-lg min-w-[220px]">
+            <div class="mb-3 border-b border-slate-300 pb-2">
+                <span class="font-bold text-slate-700">Fallzeit t<sub>w</sub>:</span> 
+                <span id="res-time" class="font-mono text-blue-700 font-bold text-xl float-right">?</span>
+            </div>
+            <div>
+                <span class="font-bold text-slate-700">Wurfweite w:</span> 
+                <span id="res-dist" class="font-mono text-blue-700 font-bold text-xl float-right">?</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Steuerungsmenü -->
+    <div id="controls" class="glass-panel p-5 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] z-10 rounded-t-2xl">
+        <div class="flex flex-wrap items-end justify-center gap-6 max-w-7xl mx-auto">
+            
+            <!-- Flughöhe -->
+            <div class="flex flex-col">
+                <label for="height-slider" class="font-bold text-sm text-slate-700 mb-1">Flughöhe (m)</label>
+                <input type="range" id="height-slider" min="100" max="3000" step="100" value="2000" class="w-32 md:w-40 accent-blue-600 h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+                <div class="text-xs text-slate-600 mt-2 font-mono bg-white px-2 py-1 rounded text-center border border-slate-200 shadow-sm"><span id="height-val" class="font-bold text-slate-800">2000</span> m</div>
+            </div>
+            
+            <!-- Geschwindigkeit -->
+            <div class="flex flex-col">
+                <label for="speed-slider" class="font-bold text-sm text-slate-700 mb-1">Geschwindigkeit (km/h)</label>
+                <input type="range" id="speed-slider" min="50" max="500" step="10" value="360" class="w-32 md:w-40 accent-blue-600 h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+                <div class="text-xs text-slate-600 mt-2 font-mono bg-white px-2 py-1 rounded text-center border border-slate-200 shadow-sm"><span id="speed-val" class="font-bold text-slate-800">360</span> km/h</div>
+            </div>
+
+            <!-- Ziel (Dorf) -->
+            <div class="flex flex-col">
+                <label for="target-input" class="font-bold text-sm text-slate-700 mb-1 max-w-[160px] leading-tight">Horizontale Entfernung zum Ziel-Dorf (m)</label>
+                <input type="number" id="target-input" min="0" max="5000" value="0" class="w-full p-2 border border-slate-300 rounded-lg text-center font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all shadow-inner">
+            </div>
+
+            <!-- Aktions-Buttons -->
+            <div class="flex gap-2 ml-4">
+                <button id="btn-start" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all active:scale-95 text-lg">
+                    Abwurf
+                </button>
+                <button id="btn-reset" class="bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 px-5 rounded-xl shadow-md transition-all active:scale-95">
+                    Reset
+                </button>
+            </div>
+            
+            <!-- Didaktik-Buttons (Toggles) -->
+            <div class="flex flex-wrap gap-2 border-l-2 border-slate-300 pl-6 ml-2">
+                <button id="btn-results" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
+                    Ergebnisse
+                </button>
+                <button id="btn-part2" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
+                    Teil 2
+                </button>
+                <button id="btn-vector-values" class="hidden bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-2 px-4 rounded-xl transition-all shadow-sm">
+                    Werte an Vektoren
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements
+    const heightSlider = document.getElementById('height-slider');
+    const speedSlider = document.getElementById('speed-slider');
+    const heightVal = document.getElementById('height-val');
+    const speedVal = document.getElementById('speed-val');
+    const targetInput = document.getElementById('target-input');
+    
+    const resTime = document.getElementById('res-time');
+    const resDist = document.getElementById('res-dist');
+    
+    const btnStart = document.getElementById('btn-start');
+    const btnReset = document.getElementById('btn-reset');
+    const btnResults = document.getElementById('btn-results');
+    const btnPart2 = document.getElementById('btn-part2');
+    const btnVectorValues = document.getElementById('btn-vector-values');
+
+    // Physikalische Konstanten
+    const g = 9.81; 
+    let v0_kmh = parseFloat(speedSlider.value);
+    let h0 = parseFloat(heightSlider.value);
+    let targetX = parseFloat(targetInput.value);
+    
+    // Status
+    let isFlying = false;
+    let isLanded = false; 
+    let t = 0; 
+    let animFrame;
+    let showResults = false;
+    let showVectors = false;
+    let showVectorValues = false;
+
+    const WORLD_WIDTH = 4500;
+    const WORLD_HEIGHT = 3500; 
+
+    function resize() {
+        const parent = canvas.parentElement;
+        canvas.width = parent.clientWidth;
+        canvas.height = parent.clientHeight;
+        draw();
+    }
+    window.addEventListener('resize', resize);
+
+    function toPixX(meters) {
+        return 60 + (meters / WORLD_WIDTH) * (canvas.width - 120);
+    }
+    
+    function toPixY(meters) {
+        // Platz für die Vektoren
+        const groundPixelY = canvas.height - 320; 
+        return groundPixelY - (meters / WORLD_HEIGHT) * groundPixelY;
+    }
+
+    function updateInputs() {
+        if (!isFlying && !isLanded) {
+            h0 = parseFloat(heightSlider.value);
+            v0_kmh = parseFloat(speedSlider.value);
+            targetX = parseFloat(targetInput.value);
+            
+            heightVal.innerText = h0;
+            speedVal.innerText = v0_kmh;
+            
+            updateResultsBox();
+            draw();
+        }
+    }
+
+    heightSlider.addEventListener('input', updateInputs);
+    speedSlider.addEventListener('input', updateInputs);
+    targetInput.addEventListener('input', updateInputs);
+
+    function toggleButton(btn, isActive) {
+        if (isActive) {
+            btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
+            btn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-600', 'shadow-md');
+        } else {
+            btn.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
+            btn.classList.remove('bg-emerald-500', 'text-white', 'border-emerald-600', 'shadow-md');
+        }
+    }
+
+    btnResults.addEventListener('click', () => {
+        showResults = !showResults;
+        toggleButton(btnResults, showResults);
+        updateResultsBox();
+    });
+
+    btnPart2.addEventListener('click', () => {
+        showVectors = !showVectors;
+        toggleButton(btnPart2, showVectors);
+        
+        if (showVectors) {
+            btnVectorValues.classList.remove('hidden');
+        } else {
+            btnVectorValues.classList.add('hidden');
+            showVectorValues = false;
+            toggleButton(btnVectorValues, false);
+        }
+        draw();
+    });
+
+    btnVectorValues.addEventListener('click', () => {
+        showVectorValues = !showVectorValues;
+        toggleButton(btnVectorValues, showVectorValues);
+        draw();
+    });
+
+    function updateResultsBox() {
+        if (showResults) {
+            const v0_ms = v0_kmh / 3.6;
+            const t_fall = Math.sqrt((2 * h0) / g);
+            const s_x = v0_ms * t_fall;
+            
+            resTime.innerText = t_fall.toFixed(2) + " s";
+            resDist.innerText = s_x.toFixed(2) + " m";
+        } else {
+            resTime.innerText = "?";
+            resDist.innerText = "?";
+        }
+    }
+
+    function drawArrow(fromX, fromY, toX, toY, color, labelText) {
+        const headlen = 14; 
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const angle = Math.atan2(dy, dx);
+        
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 4;
+        
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 7), toY - headlen * Math.sin(angle - Math.PI / 7));
+        ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 7), toY - headlen * Math.sin(angle + Math.PI / 7));
+        ctx.fill();
+
+        if (showVectorValues && labelText) {
+            ctx.font = "bold 16px monospace";
+            ctx.fillStyle = "#0f172a"; 
+            ctx.shadowColor = "rgba(255, 255, 255, 0.9)";
+            ctx.shadowBlur = 5;
+            ctx.fillText(labelText, toX + 8, toY + 18);
+            ctx.shadowBlur = 0; 
+        }
+    }
+
+    // Zeichnet das Dorf (saubere Vektorgrafik)
+    function drawVillage(x, y) {
+        // Abwurfzone (Markierung auf dem Boden)
+        ctx.fillStyle = "#ef4444"; // rot
+        ctx.fillRect(x - 30, y, 60, 5);
+        ctx.fillStyle = "#ffffff"; // weiß
+        ctx.fillRect(x - 10, y, 20, 5);
+
+        // Haus 1 (links)
+        ctx.fillStyle = "#cbd5e1"; 
+        ctx.fillRect(x - 25, y - 15, 20, 15);
+        ctx.fillStyle = "#64748b"; // Dach
+        ctx.beginPath();
+        ctx.moveTo(x - 30, y - 15); ctx.lineTo(x - 15, y - 25); ctx.lineTo(x - 5, y - 15);
+        ctx.fill();
+
+        // Haus 2 (rechts)
+        ctx.fillStyle = "#e2e8f0"; 
+        ctx.fillRect(x + 5, y - 20, 25, 20);
+        ctx.fillStyle = "#475569"; // Dach
+        ctx.beginPath();
+        ctx.moveTo(x, y - 20); ctx.lineTo(x + 17, y - 35); ctx.lineTo(x + 35, y - 20);
+        ctx.fill();
+    }
+
+    // Zeichnet das Flugzeug (Transportmaschine)
+    function drawPlane(x, y) {
+        ctx.fillStyle = "#475569"; // Rumpf
+        ctx.beginPath();
+        ctx.ellipse(x, y, 30, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Leitwerk
+        ctx.beginPath();
+        ctx.moveTo(x - 20, y);
+        ctx.lineTo(x - 30, y - 18);
+        ctx.lineTo(x - 35, y - 18);
+        ctx.lineTo(x - 28, y);
+        ctx.fill();
+        
+        // Tragfläche
+        ctx.fillStyle = "#334155";
+        ctx.beginPath();
+        ctx.moveTo(x - 10, y + 2);
+        ctx.lineTo(x - 18, y + 16);
+        ctx.lineTo(x - 5, y + 16);
+        ctx.lineTo(x + 10, y + 2);
+        ctx.fill();
+    }
+
+    // Zeichnet das Paket (Kiste)
+    function drawPackage(x, y) {
+        ctx.fillStyle = "#b45309"; // Amber/Braun
+        ctx.fillRect(x - 8, y - 8, 16, 16);
+        
+        // Paketband
+        ctx.strokeStyle = "#fcd34d"; // Helles Gelb
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 8, y); ctx.lineTo(x + 8, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y - 8); ctx.lineTo(x, y + 8);
+        ctx.stroke();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const groundY = toPixY(0);
+        
+        // Boden: Gras und Erde
+        ctx.fillStyle = "#4ade80"; 
+        ctx.fillRect(0, groundY, canvas.width, 15);
+        ctx.fillStyle = "#78350f"; 
+        ctx.fillRect(0, groundY + 15, canvas.width, canvas.height - groundY - 15);
+        
+        // Dorf zeichnen
+        const dorfPx = toPixX(targetX);
+        drawVillage(dorfPx, groundY);
+
+        const v0_ms = v0_kmh / 3.6;
+        const currentX = v0_ms * t;
+        let currentY = h0 - 0.5 * g * t * t;
+        
+        if (currentY < 0) currentY = 0; 
+        
+        const pxX = toPixX(currentX);
+        const pxY = toPixY(currentY);
+
+        // Flugbahn (Spur)
+        if (t > 0) {
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+            ctx.lineWidth = 3;
+            ctx.setLineDash([6, 6]);
+            ctx.beginPath();
+            for (let step = 0; step <= t; step += 0.2) {
+                let sx = v0_ms * step;
+                let sy = h0 - 0.5 * g * step * step;
+                if (sy < 0) sy = 0;
+                if (step === 0) ctx.moveTo(toPixX(sx), toPixY(sy));
+                else ctx.lineTo(toPixX(sx), toPixY(sy));
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Paket
+        drawPackage(pxX, pxY);
+
+        // Flugzeug
+        const planeY = toPixY(h0);
+        drawPlane(pxX, planeY);
+
+        // Vektoren (Teil 2)
+        if (showVectors && (isFlying || isLanded) && t > 0) {
+            const vx = v0_ms;
+            const vy = g * t;
+            
+            const vecScale = 0.9; 
+            
+            const vxEnd = pxX + (vx * vecScale);
+            const vyEnd = pxY + (vy * vecScale);
+
+            // Hilfslinien
+            ctx.strokeStyle = "rgba(15, 23, 42, 0.3)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(vxEnd, pxY);
+            ctx.lineTo(vxEnd, vyEnd);
+            ctx.moveTo(pxX, vyEnd);
+            ctx.lineTo(vxEnd, vyEnd);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // vx (Rot)
+            drawArrow(pxX, pxY, vxEnd, pxY, "#ef4444", `${vx.toFixed(1)} m/s`);
+            
+            // vy (Blau)
+            drawArrow(pxX, pxY, pxX, vyEnd, "#3b82f6", `${vy.toFixed(1)} m/s`);
+        }
+    }
+
+    function animate() {
+        if (!isFlying) return;
+        
+        t += 0.04; 
+        let currentY = h0 - 0.5 * g * t * t;
+        
+        if (currentY <= 0) {
+            t = Math.sqrt((2 * h0) / g);
+            isFlying = false;
+            isLanded = true; 
+        }
+        
+        draw();
+
+        if (isFlying) {
+            animFrame = requestAnimationFrame(animate);
+        }
+    }
+
+    btnStart.addEventListener('click', () => {
+        if (isFlying || isLanded) {
+            t = 0;
+            isLanded = false;
+        }
+        isFlying = true;
+        animate();
+    });
+
+    btnReset.addEventListener('click', () => {
+        cancelAnimationFrame(animFrame);
+        isFlying = false;
+        isLanded = false;
+        t = 0;
+        updateInputs(); 
+    });
+
+    // Start-Setup
+    setTimeout(() => {
+        resize();
+        updateInputs();
+    }, 100);
+</script>
+</body>
+</html>
